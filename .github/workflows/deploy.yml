@@ -1,0 +1,40 @@
+name: Deploy Encrypted Dashboard
+
+on:
+  push:
+    paths:
+      - 'STAT_daily_reve.csv' # CSV 파일이 업데이트될 때만 실행
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install pandas
+
+      - name: Generate HTML
+        run: python generate.py
+
+      - name: Encrypt with Staticrypt
+        env:
+          PWD: ${{ secrets.PAGE_PASSWORD }}
+        run: |
+          # npx를 통해 staticrypt 실행 (dashboard_raw.html -> index.html)
+          npx staticrypt dashboard_raw.html "$PWD" -o index.html --title "Private Dashboard"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
+          publish_branch: gh-pages
+          # index.html만 배포하고 나머지는 무시하도록 설정
+          exclude_assets: '.github,generate.py,template.html,STAT_daily_reve.csv,dashboard_raw.html'
