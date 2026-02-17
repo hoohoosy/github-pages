@@ -10,7 +10,6 @@ on:
       - 'template.html'
       - '.github/workflows/deploy.yml'
 
-# 1. 권한 설정 (403 에러 해결)
 permissions:
   contents: write
 
@@ -29,23 +28,20 @@ jobs:
       - name: Install dependencies
         run: pip install pandas
 
-      # 2. 파이썬 실행 (CSV -> dashboard_raw.html 생성)
       - name: Generate HTML
         run: python generate.py
 
-      # 3. 암호화 실행 (dashboard_raw.html -> index.html 생성)
+      # [수정포인트] public 폴더를 만들고 그 안에 암호화된 index.html을 저장합니다.
       - name: Encrypt with Staticrypt
         env:
           PWD: ${{ secrets.PAGE_PASSWORD }}
         run: |
-          npx staticrypt dashboard_raw.html "$PWD" -o index.html --title "나의 수익률 대시보드"
+          mkdir public
+          npx staticrypt dashboard_raw.html "$PWD" -o public/index.html --title "나의 수익률 대시보드"
 
-      # 4. 배포 (gh-pages 브랜치로 index.html 전송)
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
+          publish_dir: ./public  # 중요: public 폴더 안의 내용만 gh-pages로 보냅니다.
           publish_branch: gh-pages
-          # index.html이 사라지지 않도록 제외 목록을 신중하게 설정하거나 비워둡니다.
-          exclude_assets: '.github,generate.py,template.html,STAT_daily_reve.csv,dashboard_raw.html'
