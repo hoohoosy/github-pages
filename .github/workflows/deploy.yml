@@ -17,7 +17,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout source code
         uses: actions/checkout@v3
 
       - name: Set up Python
@@ -28,20 +28,33 @@ jobs:
       - name: Install dependencies
         run: pip install pandas
 
-      - name: Generate HTML
-        run: python generate.py
+      # [진단 1] Python 스크립트 실행 후 파일이 진짜 생겼는지 확인
+      - name: Generate HTML & Debug
+        run: |
+          python generate.py
+          echo "=== 파일 생성 확인 (dashboard_raw.html이 있어야 함) ==="
+          ls -al
 
-      # [수정포인트] public 폴더를 만들고 그 안에 암호화된 index.html을 저장합니다.
-      - name: Encrypt with Staticrypt
+      # [핵심 수정] build 폴더를 만들고 결과물을 거기로 확실히 보냄
+      - name: Encrypt HTML to Build Directory
         env:
           PWD: ${{ secrets.PAGE_PASSWORD }}
         run: |
-          mkdir public
-          npx staticrypt dashboard_raw.html "$PWD" -o public/index.html --title "나의 수익률 대시보드"
+          # 1. 배포용 폴더 생성
+          mkdir build_dir
+          
+          # 2. npx 설치 승인(-y) 옵션 추가 및 암호화 실행
+          # dashboard_raw.html을 읽어서 -> build_dir/index.html 로 저장
+          npx -y staticrypt dashboard_raw.html "$PWD" -o build_dir/index.html --title "수익률 대시보드"
+          
+          # [진단 2] 암호화된 파일이 build_dir 안에 들어있는지 강제 확인
+          echo "=== 배포할 폴더 내용 확인 (index.html이 있어야 함) ==="
+          ls -R build_dir
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public  # 중요: public 폴더 안의 내용만 gh-pages로 보냅니다.
+          publish_dir: ./build_dir  # 위에서 만든 폴더만 배포
           publish_branch: gh-pages
+          force_orphan: true        # 기존 내역 싹 지우고 덮어쓰기 (깨끗하게 배포)
